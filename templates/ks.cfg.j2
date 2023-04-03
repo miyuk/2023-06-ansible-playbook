@@ -1,0 +1,34 @@
+graphical
+eula --agreed
+
+%packages
+@^minimal-environment
+kexec-tools
+%end
+
+keyboard --xlayouts='jp'
+lang ja_JP.UTF-8
+
+network  --bootproto=static --device=ens18 --gateway={{ vm_network.gateway }} --ip={{ vm_network.address | ansible.utils.ipaddr('address') }} --nameserver={{ vm_network.nameserver }} --netmask={{ vm_network.address | ansible.utils.ipaddr('netmask') }} --ipv6=auto --activate
+network  --hostname={{ vm_name }}
+
+firstboot --enable
+
+ignoredisk --only-use=sda
+autopart
+clearpart --none --initlabel
+
+timezone Asia/Tokyo --isUtc --nontp
+
+rootpw --iscrypted {{ vm_root_password | password_hash('sha512') }}
+
+%addon com_redhat_kdump --enable --reserve-mb='auto'
+%end
+
+%anaconda
+pwpolicy root --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+pwpolicy user --minlen=6 --minquality=1 --notstrict --nochanges --emptyok
+pwpolicy luks --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+%end
+
+shutdown

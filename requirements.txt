@@ -1,0 +1,9 @@
+# community.vmwareで利用
+pyVmomi
+git+https://github.com/vmware/vsphere-automation-sdk-python.git
+# ipaddrフィルタで利用
+netaddr
+# hash256フィルタで利用
+passlib
+# iso_createモジュールで利用
+pycdlib

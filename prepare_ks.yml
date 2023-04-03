@@ -1,0 +1,63 @@
+---
+- name: Kickstart ISOの作成
+  gather_facts: true
+  hosts: vcenter
+  vars_files:
+    - vars/parameters.yml
+  environment:
+    VMWARE_HOST: "{{ vcenter_hostname }}"
+    VMWARE_USER: "{{ vcenter_username }}"
+    VMWARE_PASSWORD: "{{ vcenter_password }}"
+    VMWARE_VALIDATE_CERTS: "{{ vcenter_validate_certs }}"
+  tasks:
+    - name: ワークディレクトリ定義
+      ansible.builtin.set_fact:
+        __work_dir: "{{ ansible_env.PWD }}/prepare_ks"
+      delegate_to: localhost
+
+    - name: ワークディレクトリ作成
+      ansible.builtin.file:
+        path: "{{ __work_dir }}"
+        state: "directory"
+        mode: "0755"
+      delegate_to: localhost
+
+    - name: ISO一時保存ディレクトリ作成
+      ansible.builtin.tempfile:
+        path: "{{ __work_dir }}"
+        state: "directory"
+        suffix: "__ks_iso"
+      register: __iso_root_dir
+      delegate_to: localhost
+
+    - name: Kickstartファイルを作成
+      ansible.builtin.template:
+        src: "ks.cfg.j2"
+        dest: "{{ __iso_root_dir.path }}/ks.cfg"
+        mode: "0644"
+      delegate_to: localhost
+
+    - name: ISO作成
+      community.general.iso_create:
+        src_files:
+          - "{{ __iso_root_dir.path }}/ks.cfg"
+        dest_iso: "{{ __work_dir }}/{{ vm_name }}.iso"
+        interchange_level: 3
+        joliet: 3
+        rock_ridge: 1.09
+        vol_ident: "{{ vm_name }}_KSCONF"
+      delegate_to: localhost
+
+    - name: Kickstart ISOをvCenterへアップロード
+      community.vmware.vsphere_copy:
+        datacenter: "{{ vm_datacenter }}"
+        datastore: "{{ vm_ks.datastore }}"
+        path: "{{ vm_ks.path }}"
+        src: "{{ __work_dir }}/{{ vm_name }}.iso"
+      delegate_to: localhost
+
+    - name: 一時ファイルを削除
+      ansible.builtin.file:
+        path: "{{ __iso_root_dir.path }}"
+        state: "absent"
+      delegate_to: localhost

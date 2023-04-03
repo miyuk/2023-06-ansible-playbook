@@ -1,0 +1,135 @@
+---
+- name: VM作成Playbook
+  gather_facts: true
+  hosts: vcenter
+  vars_files:
+    - vars/parameters.yml
+  environment:
+    VMWARE_HOST: "{{ vcenter_hostname }}"
+    VMWARE_USER: "{{ vcenter_username }}"
+    VMWARE_PASSWORD: "{{ vcenter_password }}"
+    VMWARE_VALIDATE_CERTS: "{{ vcenter_validate_certs }}"
+  tasks:
+    - name: VMインスタンス作成
+      community.vmware.vmware_guest:
+        name: "{{ vm_name }}"
+        cluster: "{{ vm_cluster }}"
+        datacenter: "{{ vm_datacenter }}"
+        folder: "{{ vm_folder }}"
+        state: "poweredoff"
+        annotation: "Created by Ansible"
+        guest_id: "{{ vm_guest_id }}"
+        cdrom:
+          - type: "iso"
+            controller_number: 0
+            unit_number: 0
+            iso_path: "[{{ vm_iso.datastore }}]{{ vm_iso.path }}"
+        disk:
+          - datastore: "{{ vm_disk.datastore }}"
+            size_gb: "{{ vm_disk.size_gb }}"
+            type: "{{ vm_disk.type }}"
+        networks:
+          - name: "{{ vm_network.name }}"
+        hardware:
+          memory_mb: "{{ vm_memory_mb }}"
+          num_cpus: "{{ vm_num_cpus }}"
+      delegate_to: localhost
+
+    - name: Kickstart ISOをアタッチ
+      community.vmware.vmware_guest:
+        name: "{{ vm_name }}"
+        cluster: "{{ vm_cluster }}"
+        datacenter: "{{ vm_datacenter }}"
+        folder: "{{ vm_folder }}"
+        state: "present"
+        cdrom:
+          - type: "iso"
+            controller_number: 0
+            unit_number: 1
+            iso_path: "[{{ vm_ks.datastore }}]{{ vm_ks.path }}"
+      delegate_to: localhost
+
+    - name: VMを起動
+      community.vmware.vmware_guest:
+        name: "{{ vm_name }}"
+        cluster: "{{ vm_cluster }}"
+        datacenter: "{{ vm_datacenter }}"
+        folder: "{{ vm_folder }}"
+        state: "poweredon"
+      delegate_to: localhost
+
+    - name: ISOインストーラの開始待機
+      ansible.builtin.wait_for:
+        timeout: 5
+
+    - name: コマンド入力画面へ移行
+      community.vmware.vmware_guest_sendkey:
+        name: "{{ vm_name }}"
+        cluster: "{{ vm_cluster }}"
+        datacenter: "{{ vm_datacenter }}"
+        folder: "{{ vm_folder }}"
+        keys_send:
+          - "ESC"
+      delegate_to: localhost
+
+    - name: コマンド入力画面待機
+      ansible.builtin.wait_for:
+        timeout: 1
+
+    - name: Kickstartコマンド入力
+      community.vmware.vmware_guest_sendkey:
+        name: "{{ vm_name }}"
+        cluster: "{{ vm_cluster }}"
+        datacenter: "{{ vm_datacenter }}"
+        folder: "{{ vm_folder }}"
+        string_send: "linux inst.ks=cdrom:/ks.cfg"
+      delegate_to: localhost
+
+    - name: Kickstart実行
+      community.vmware.vmware_guest_sendkey:
+        name: "{{ vm_name }}"
+        cluster: "{{ vm_cluster }}"
+        datacenter: "{{ vm_datacenter }}"
+        folder: "{{ vm_folder }}"
+        keys_send:
+          - "ENTER"
+      delegate_to: localhost
+
+    - name: インストーラ終了(VM停止)待機
+      community.vmware.vmware_guest_info:
+        name: "{{ vm_name }}"
+        datacenter: "{{ vm_datacenter }}"
+        folder: "{{ vm_folder }}"
+      register: __vm_info
+      until: __vm_info.instance.hw_power_status == 'poweredOff'
+      retries: 30
+      delay: 60
+      delegate_to: localhost
+
+    - name: Kickstart ISOをデタッチ
+      community.vmware.vmware_guest:
+        name: "{{ vm_name }}"
+        cluster: "{{ vm_cluster }}"
+        datacenter: "{{ vm_datacenter }}"
+        folder: "{{ vm_folder }}"
+        state: "present"
+        cdrom:
+          - type: "iso"
+            state: "absent"
+            controller_number: 0
+            unit_number: 1
+      delegate_to: localhost
+
+    - name: インストーラ ISOの取り外し
+      community.vmware.vmware_guest:
+        name: "{{ vm_name }}"
+        cluster: "{{ vm_cluster }}"
+        datacenter: "{{ vm_datacenter }}"
+        folder: "{{ vm_folder }}"
+        state: "present"
+        cdrom:
+          - type: "client"
+            state: "present"
+            controller_number: 0
+            unit_number: 1
+      delegate_to: localhost

@@ -1,0 +1,30 @@
+---
+vm_datacenter: "Datacenter"
+vm_cluster: "Cluster"
+vm_folder: "/{{ vm_datacenter }}/vm"
+vm_name: "TESTVM"
+
+vm_guest_id: "rhel8_64Guest"
+vm_memory_mb: 2048
+vm_num_cpus: 1
+
+vm_iso:
+  datastore: "datastore1"
+  path: "__ISO/Rocky-8.7-x86_64-minimal.iso"
+
+vm_disk:
+  datastore: "datastore1"
+  size_gb: 50
+  type: "thin"
+
+vm_network:
+  name: "VM Network"
+  gateway: "192.168.1.1"
+  address: "192.168.1.100/24"
+  nameserver: "192.168.1.1"
+
+vm_ks:
+  datastore: "datastore2"
+  path: "__ISO/kickstart/{{ vm_name }}.iso"
+
+vm_root_password: ""
