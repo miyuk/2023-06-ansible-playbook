@@ -24,7 +24,7 @@ vm_network:
   nameserver: "192.168.1.1"
 
 vm_ks:
-  datastore: "datastore2"
+  datastore: "datastore1"
   path: "__ISO/kickstart/{{ vm_name }}.iso"
 
 vm_root_password: ""
